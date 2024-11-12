@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Upload, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Search, Upload, ChevronUp, ChevronDown, X, Download } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import _ from 'lodash';
 
@@ -48,6 +48,131 @@ function InstagramChatViewer() {
     });
   };
 
+  const handleExportPDF = async () => {
+    setLoading(true);
+  
+    try {
+      // Create a temporary container
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.width = '210mm'; // A4 width
+      pdfContainer.style.position = 'absolute';
+      pdfContainer.style.left = '-9999px';
+      document.body.appendChild(pdfContainer);
+  
+      // Add title
+      const title = document.createElement('h1');
+      title.textContent = 'Instagram Chat History';
+      title.style.textAlign = 'center';
+      title.style.padding = '20px';
+      title.style.fontSize = '24px';
+      title.style.color = '#000';
+      pdfContainer.appendChild(title);
+  
+      // Create messages container
+      const messagesContainer = document.createElement('div');
+      messagesContainer.style.padding = '20px';
+      messagesContainer.style.display = 'flex';
+      messagesContainer.style.flexDirection = 'column';
+      messagesContainer.style.gap = '12px';
+  
+      // Add each message
+      messages.forEach((message) => {
+        const messageWrapper = document.createElement('div');
+        messageWrapper.style.display = 'flex';
+        messageWrapper.style.justifyContent = message.isCurrentUser ? 'flex-end' : 'flex-start';
+        messageWrapper.style.width = '100%';
+        messageWrapper.style.marginBottom = '8px';
+  
+        const messageDiv = document.createElement('div');
+        messageDiv.style.maxWidth = '70%';
+        messageDiv.style.padding = '12px';
+        messageDiv.style.borderRadius = '12px';
+        messageDiv.style.backgroundColor = message.isCurrentUser ? '#3b82f6' : '#f3f4f6';
+        messageDiv.style.color = message.isCurrentUser ? '#ffffff' : '#000000';
+        messageDiv.style.fontSize = '14px';
+        messageDiv.style.wordBreak = 'break-word';
+        messageDiv.style.position = 'relative';
+  
+        // Sender name for non-current user
+        if (!message.isCurrentUser) {
+          const sender = document.createElement('div');
+          sender.textContent = message.sender;
+          sender.style.fontSize = '12px';
+          sender.style.marginBottom = '4px';
+          sender.style.color = '#666666';
+          messageDiv.appendChild(sender);
+        }
+  
+        // Message content
+        const content = document.createElement('div');
+        content.textContent = message.content;
+        messageDiv.appendChild(content);
+  
+        // Reactions
+        if (message.reactions && message.reactions.length > 0) {
+          const reactions = document.createElement('div');
+          reactions.textContent = message.reactions.join(' ');
+          reactions.style.fontSize = '12px';
+          reactions.style.marginTop = '4px';
+          reactions.style.color = message.isCurrentUser ? '#ffffff99' : '#666666';
+          messageDiv.appendChild(reactions);
+        }
+  
+        // Like indicator
+        if (message.isLiked) {
+          const like = document.createElement('span');
+          like.textContent = ' ❤️';
+          like.style.fontSize = '12px';
+          content.appendChild(like);
+        }
+  
+        // Timestamp
+        const timestamp = document.createElement('div');
+        timestamp.textContent = message.timestamp;
+        timestamp.style.fontSize = '10px';
+        timestamp.style.marginTop = '4px';
+        timestamp.style.color = message.isCurrentUser ? '#ffffff99' : '#666666';
+        messageDiv.appendChild(timestamp);
+  
+        messageWrapper.appendChild(messageDiv);
+        messagesContainer.appendChild(messageWrapper);
+      });
+  
+      pdfContainer.appendChild(messagesContainer);
+  
+      // PDF generation options
+      const opt = {
+        margin: 10,
+        filename: 'instagram-chat-export.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          allowTaint: true
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        }
+      };
+  
+      // Generate PDF
+      const html2pdf = (await import('html2pdf.js')).default;
+      await html2pdf().from(pdfContainer).set(opt).save();
+  
+      // Cleanup
+      document.body.removeChild(pdfContainer);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+    
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -141,16 +266,37 @@ function InstagramChatViewer() {
             <h1 className="text-lg font-semibold text-gray-900">
               Instagram Chat History
             </h1>
-            <label className="flex items-center space-x-2 cursor-pointer px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-all">
-              <Upload className="h-4 w-4" />
-              <span>Upload Chat</span>
-              <input
-                type="file"
-                accept=".html"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+            <div className="flex gap-2">
+              {messages.length > 0 && (
+                <button
+                  onClick={handleExportPDF}
+                  disabled={loading}
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Exporting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      <span>Export PDF</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <label className="flex items-center space-x-2 cursor-pointer px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-all">
+                <Upload className="h-4 w-4" />
+                <span>Upload Chat</span>
+                <input
+                  type="file"
+                  accept=".html"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
 
           <div className="relative">
@@ -193,6 +339,7 @@ function InstagramChatViewer() {
 
         <div 
           ref={chatContainerRef}
+          id="chat-content"
           className="flex-1 overflow-y-auto px-3 py-2"
         >
           {loading ? (
@@ -248,7 +395,7 @@ function InstagramChatViewer() {
                       )}
                     </div>
                   </div>
-                  <span className={`text-[11px] text-gray-400 self-end mb-0.5 mx-2 opacity-0 group-hover:opacity-100 transition-opacity
+                  <span className={`text-[11px] text-gray-400 self-end mb-0.5 mx-2 opacity-0 group-hover:opacity-100 transition-opacity timestamp
                     ${message.isCurrentUser ? 'order-first' : 'order-last'}
                   `}>
                     {message.timestamp}
